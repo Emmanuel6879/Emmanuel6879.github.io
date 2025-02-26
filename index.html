@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Daily Activities Tracker</title>
+    <style>
+        :root {
+            --primary: #4361ee;
+            --secondary: #3f37c9;
+            --accent: #4cc9f0;
+            --light: #f8f9fa;
+            --dark: #212529;
+            --success: #4caf50;
+            --danger: #f44336;
+            --warning: #ff9800;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background-color: #f5f5f5;
+            color: var(--dark);
+            line-height: 1.6;
+        }
+        
+        header {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            padding: 1rem;
+            text-align: center;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 1rem;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        h1, h2, h3 {
+            font-weight: 600;
+        }
+        
+        .tabs {
+            display: flex;
+            margin-bottom: 1rem;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .tab {
+            padding: 0.75rem 1.5rem;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s ease;
+        }
+        
+        .tab.active {
+            border-bottom: 3px solid var(--primary);
+            color: var(--primary);
+            font-weight: bold;
+        }
+        
+        .tab:hover {
+            background-color: rgba(67, 97, 238, 0.1);
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        form {
+            display: grid;
+            gap: 1rem;
+        }
+        
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        label {
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+        
+        input, select, textarea {
+            padding: 0.75rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 1rem;
+        }
+        
+        button {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background-color 0.3s ease;
+        }
+        
+        button:hover {
+            background-color: var(--secondary);
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+        
+        th, td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        th {
+            background-color: #f5f5f5;
+        }
+        
+        tr:hover {
+            background-color: rgba(67, 97, 238, 0.05);
+        }
+        
+        .actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+        
+        .btn-small {
+            padding: 0.4rem 0.75rem;
+            font-size: 0.875rem;
+        }
+        
+        .btn-danger {
+            background-color: var(--danger);
+        }
+        
+        .btn-danger:hover {
+            background-color: #d32f2f;
+        }
+        
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin-top: 1rem;
+        }
+        
+        .filter-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+        
+        .filter-group {
+            flex: 1;
+            min-width: 250px;
+        }
+        
+        @media (max-width: 768px) {
+            .tabs {
+                flex-direction: column;
+                border-bottom: none;
+            }
+            
+            .tab {
+                border-bottom: 1px solid #ddd;
+                border-left: 3px solid transparent;
+            }
+            
+            .tab.active {
+                border-bottom: 1px solid #ddd;
+                border-left: 3px solid var(--primary);
+            }
+            
+            form {
+                grid-template-columns: 1fr;
+            }
+            
+            table {
+                display: block;
+                overflow-x: auto;
+            }
+            
+            .filter-row {
+                flex-direction: column;
+            }
+            
+            .filter-group {
+                width: 100%;
+            }
+        }
+        
+        .export-btn {
+            background-color: var(--success);
+            margin-bottom: 1rem;
+        }
+        
+        .export-btn:hover {
+            background-color: #388e3c;
+        }
+        
+        .summary-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        .stat-card {
+            background: white;
+            border-left: 4px solid var(--primary);
+            border-radius: 4px;
+            padding: 1rem;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        
+        .stat-card h3 {
+            font-size: 0.875rem;
+            color: #666;
+            margin-bottom: 0.5rem;
+        }
+        
+        .stat-card p {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--dark);
+        }
+        
+        .type-1 { border-left-color: var(--primary); }
+        .type-2 { border-left-color: var(--success); }
+        .type-3 { border-left-color: var(--warning); }
+        .type-4 { border-left-color: var(--accent); }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Daily Activities Tracker</h1>
+    </header>
+    
+    <div class="container">
+        <div class="tabs">
+            <div class="tab active" data-tab="entry">New Entry</div>
+            <div class="tab" data-tab="records">View Records</div>
+            <div class="tab" data-tab="reports">Reports & Analytics</div>
+        </div>
+        
+        <div class="tab-content active" id="entry">
+            <div class="card">
+                <h2>Log New Activity</h2>
+                <form id="activity-form">
+                    <div class="form-group">
+                        <label for="date">Date</label>
+                        <input type="date" id="date" name="date" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="facility">Name of Facility</label>
+                        <input type="text" id="facility" name="facility" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="facility">Address of Facility</label>
+                        <input type="text" id="facility" name="facility" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="activityType">Type of Activity</label>
+                        <select id="activityType" name="activityType" required>
+                            <option value="">Select Activity Type</option>
+                            <option value="GDP Inspection">GDP Inspection</option>
+                            <option value="Routine surveillance">Routine surveillance</option>
+                            <option value="Consumer Investigation">Consumer Complaint Investigation</option>
+                            <option value="Consultative meeting">Consultative meeting</option>
+                            <option value="GLSI Inspection">GLSI Inspection</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="observation">Observation/Action Taken</label>
+                        <textarea id="observation" name="observation" rows="4" required></textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="officers">NAFDAC Officers</label>
+                        <input type="text" id="officers" name="officers" placeholder="Comma-separated names" required>
+                    </div>
+                    
+                    <button type="submit">Submit Entry</button>
+                </form>
+            </div>
+        </div>
+        
+        <div class="tab-content" id="records">
+            <div class="card">
+                <h2>Activity Records</h2>
+                
+                <div class="filter-row">
+                    <div class="filter-group">
+                        <label for="filter-month">Filter by Month</label>
+                        <select id="filter-month">
+                            <option value="">All Months</option>
+                            <option value="0">January</option>
+                            <option value="1">February</option>
+                            <option value="2">March</option>
+                            <option value="3">April</option>
+                            <option value="4">May</option>
+                            <option value="5">June</option>
+                            <option value="6">July</option>
+                            <option value="7">August</option>
+                            <option value="8">September</option>
+                            <option value="9">October</option>
+                            <option value="10">November</option>
+                            <option value="11">December</option>
+                        </select>
+                    </div>
+                    
+                    <div class="filter-group">
+                        <label for="filter-type">Filter by Activity Type</label>
+                        <select id="filter-type">
+                            <option value="">All Types</option>
+                            <option value="Inspection">Inspection</option>
+                            <option value="Follow-up">Follow-up</option>
+                            <option value="Complaint Investigation">Complaint Investigation</option>
+                            <option value="Sampling">Sampling</option>
+                            <option value="Education/Training">Education/Training</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <button class="export-btn" id="export-btn">Export to CSV</button>
+                
+                <table id="records-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Facility</th>
+                            <th>Activity Type</th>
+                            <th>Observation/Action</th>
+                            <th>Officers</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="records-body">
+                        <!-- Records will be populated here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <div class="tab-content" id="reports">
+            <div class="card">
+                <h2>Monthly Report</h2>
+                
+                <div class="filter-row">
+                    <div class="filter-group">
+                        <label for="report-month">Select Month</label>
+                        <select id="report-month">
+                            <option value="0">January</option>
+                            <option value="1">February</option>
+                            <option value="2">March</option>
+                            <option value="3">April</option>
+                            <option value="4">May</option>
+                            <option value="5">June</option>
+                            <option value="6">July</option>
+                            <option value="7">August</option>
+                            <option value="8">September</option>
+                            <option value="9">October</option>
+                            <option value="10">November</option>
+                            <option value="11">December</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="summary-stats">
+                    <div class="stat-card type-1">
+                        <h3>Total Activities</h3>
+                        <p id="total-activities">0</p>
+                    </div>
+                    <div class="stat-card type-2">
+                        <h3>Unique Facilities</h3>
+                        <p id="unique-facilities">0</p>
+                    </div>
+                    <div class="stat-card type-3">
+                        <h3>Officers Involved</h3>
+                        <p id="total-officers">0</p>
+                    </div>
+                    <div class="stat-card type-4">
+                        <h3>Most Common Activity</h3>
+                        <p id="common-activity">-</p>
+                    </div>
+                </div>
+                
+                <h3>Activity Types Distribution</h3>
+                <div class="chart-container">
+                    <canvas id="activity-chart"></canvas>
+                </div>
+                
+                <h3>Activities Over Time</h3>
+                <div class="chart-container">
+                    <canvas id="time-chart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <script>
+        // DOM Elements
+        const tabs = document.querySelectorAll('.tab');
+        const tabContents = document.querySelectorAll('.tab-content');
+        const activityForm = document.getElementById('activity-form');
+        const recordsBody = document.getElementById('records-body');
+        const filterMonth = document.getElementById('filter-month');
+        const filterType = document.getElementById('filter-type');
+        const exportBtn = document.getElementById('export-btn');
+        const reportMonth = document.getElementById('report-month');
+        
+        // Set default date to today
+        document.getElementById('date').valueAsDate = new Date();
+        
+        // Set default report month to current month
+        const currentMonth = new Date().getMonth();
+        reportMonth.value = currentMonth;
+        
+        // Initialize activities from localStorage
+        let activities = JSON.parse(localStorage.getItem('activities')) || [];
+        
+        // Tab switching functionality
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                tabs.forEach(t => t.classList.remove('active'));
+                tabContents.forEach(tc => tc.classList.remove('active'));
+                
+                tab.classList.add('active');
+                const tabId = tab.getAttribute('data-tab');
+                document.getElementById(tabId).classList.add('active');
+                
+                if (tabId === 'records') {
+                    renderRecords();
+                } else if (tabId === 'reports') {
+                    generateReports();
+                }
+            });
+        });
+        
+        // Form submission
+        activityForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            
+            const newActivity = {
+                id: Date.now(), // Unique ID for the entry
+                date: document.getElementById('date').value,
+                facility: document.getElementById('facility').value,
+                activityType: document.getElementById('activityType').value,
+                observation: document.getElementById('observation').value,
+                officers: document.getElementById('officers').value.split(',').map(o => o.trim()),
+            };
+            
+            activities.push(newActivity);
+            saveActivities();
+            
+            // Reset form
+            activityForm.reset();
+            document.getElementById('date').valueAsDate = new Date();
+            
+            // Show success message
+            alert('Activity logged successfully!');
+        });
+        
+        // Filter change event
+        filterMonth.addEventListener('change', renderRecords);
+        filterType.addEventListener('change', renderRecords);
+        
+        // Export to CSV
+        exportBtn.addEventListener('click', exportToCSV);
+        
+        // Report month change event
+        reportMonth.addEventListener('change', generateReports);
+        
+        // Render records with filters
+        function renderRecords() {
+            const monthFilter = filterMonth.value;
+            const typeFilter = filterType.value;
+            
+            // Filter activities based on selected filters
+            const filteredActivities = activities.filter(activity => {
+                const activityDate = new Date(activity.date);
+                const matchMonth = monthFilter === '' || activityDate.getMonth() === parseInt(monthFilter);
+                const matchType = typeFilter === '' || activity.activityType === typeFilter;
+                
+                return matchMonth && matchType;
+            });
+            
+            // Sort by date (most recent first)
+            filteredActivities.sort((a, b) => new Date(b.date) - new Date(a.date));
+            
+            // Clear table
+            recordsBody.innerHTML = '';
+            
+            // Populate table
+            filteredActivities.forEach(activity => {
+                const row = document.createElement('tr');
+                
+                // Format date for display
+                const formattedDate = new Date(activity.date).toLocaleDateString();
+                
+                row.innerHTML = `
+                    <td>${formattedDate}</td>
+                    <td>${activity.facility}</td>
+                    <td>${activity.activityType}</td>
+                    <td>${activity.observation.substring(0, 50)}${activity.observation.length > 50 ? '...' : ''}</td>
+                    <td>${activity.officers.join(', ')}</td>
+                    <td class="actions">
+                        <button class="btn-small btn-danger" onclick="deleteActivity(${activity.id})">Delete</button>
+                    </td>
+                `;
+                
+                recordsBody.appendChild(row);
+            });
+        }
+        
+        // Delete activity
+        window.deleteActivity = function(id) {
+            if (confirm('Are you sure you want to delete this record?')) {
+                activities = activities.filter(activity => activity.id !== id);
+                saveActivities();
+                renderRecords();
+            }
+        };
+        
+        // Export to CSV
+        function exportToCSV() {
+            const monthFilter = filterMonth.value;
+            const typeFilter = filterType.value;
+            
+            // Filter activities based on selected filters
+            const filteredActivities = activities.filter(activity => {
+                const activityDate = new Date(activity.date);
+                const matchMonth = monthFilter === '' || activityDate.getMonth() === parseInt(monthFilter);
+                const matchType = typeFilter === '' || activity.activityType === typeFilter;
+                
+                return matchMonth && matchType;
+            });
+            
+            // Prepare CSV content
+            let csvContent = 'Date,Facility,Activity Type,Observation/Action,Officers\n';
+            
+            filteredActivities.forEach(activity => {
+                const formattedDate = new Date(activity.date).toLocaleDateString();
+                const row = [
+                    formattedDate,
+                    `"${activity.facility.replace(/"/g, '""')}"`,
+                    `"${activity.activityType.replace(/"/g, '""')}"`,
+                    `"${activity.observation.replace(/"/g, '""')}"`,
+                    `"${activity.officers.join(', ').replace(/"/g, '""')}"`
+                ];
+                
+                csvContent += row.join(',') + '\n';
+            });
+            
+            // Create download link
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.setAttribute('href', url);
+            link.setAttribute('download', 'activities_report.csv');
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+        
+        // Generate reports and charts
+        function generateReports() {
+            const selectedMonth = parseInt(reportMonth.value);
+            
+            // Filter activities for the selected month
+            const monthActivities = activities.filter(activity => {
+                const activityDate = new Date(activity.date);
+                return activityDate.getMonth() === selectedMonth;
+            });
+            
+            // Calculate summary statistics
+            const totalActivities = monthActivities.length;
+            
+            const uniqueFacilities = [...new Set(monthActivities.map(a => a.facility))].length;
+            
+            const allOfficers = monthActivities.flatMap(a => a.officers);
+            const uniqueOfficers = [...new Set(allOfficers)].length;
+            
+            // Find most common activity type
+            const activityTypes = monthActivities.map(a => a.activityType);
+            const typeCount = {};
+            let maxCount = 0;
+            let mostCommonType = '-';
+            
+            activityTypes.forEach(type => {
+                typeCount[type] = (typeCount[type] || 0) + 1;
+                if (typeCount[type] > maxCount) {
+                    maxCount = typeCount[type];
+                    mostCommonType = type;
+                }
+            });
+            
+            // Update summary statistics display
+            document.getElementById('total-activities').textContent = totalActivities;
+            document.getElementById('unique-facilities').textContent = uniqueFacilities;
+            document.getElementById('total-officers').textContent = uniqueOfficers;
+            document.getElementById('common-activity').textContent = totalActivities > 0 ? mostCommonType : '-';
+            
+            // Generate charts
+            generateActivityTypeChart(monthActivities);
+            generateTimeChart(monthActivities);
+        }
+        
+        // Generate activity type distribution chart
+        function generateActivityTypeChart(activities) {
+            const activityTypes = ['Inspection', 'Follow-up', 'Complaint Investigation', 'Sampling', 'Education/Training', 'Other'];
+            const counts = activityTypes.map(type => {
+                return activities.filter(a => a.activityType === type).length;
+            });
+            
+            const ctx = document.getElementById('activity-chart').getContext('2d');
+            
+            // Destroy existing chart if it exists
+            if (window.activityChart) {
+                window.activityChart.destroy();
+            }
+            
+            window.activityChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: activityTypes,
+                    datasets: [{
+                        data: counts,
+                        backgroundColor: [
+                            '#4361ee',
+                            '#4caf50',
+                            '#ff9800',
+                            '#f44336',
+                            '#9c27b0',
+                            '#607d8b'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right'
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Generate activities over time chart
+        function generateTimeChart(activities) {
+            // Group activities by day
+            const activityByDay = {};
+            
+            activities.forEach(activity => {
+                const date = activity.date;
+                activityByDay[date] = (activityByDay[date] || 0) + 1;
+            });
+            
+            // Sort dates
+            const sortedDates = Object.keys(activityByDay).sort();
+            
+            const ctx = document.getElementById('time-chart').getContext('2d');
+            
+            // Destroy existing chart if it exists
+            if (window.timeChart) {
+                window.timeChart.destroy();
+            }
+            
+            window.timeChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: sortedDates.map(date => new Date(date).toLocaleDateString()),
+                    datasets: [{
+                        label: 'Number of Activities',
+                        data: sortedDates.map(date => activityByDay[date]),
+                        borderColor: '#4361ee',
+                        backgroundColor: 'rgba(67, 97, 238, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                stepSize: 1
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Save activities to localStorage
+        function saveActivities() {
+            localStorage.setItem('activities', JSON.stringify(activities));
+        }
+        
+        // Initial render
+        renderRecords();
+    </script>
+</body>
+</html>
