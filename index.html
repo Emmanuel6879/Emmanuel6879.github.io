@@ -308,6 +308,11 @@
                         <label for="officers">NAFDAC Officers</label>
                         <input type="text" id="officers" name="officers" placeholder="Comma-separated names" required>
                     </div>
+
+                    <div class="form-group">
+                        <label for="Recommendation">Recommendation</label>
+                        <textarea id="Recommendation" name="Recommendation" rows="4" required></textarea>
+                    </div>
                     
                     <button type="submit">Submit Entry</button>
                 </form>
@@ -342,11 +347,11 @@
                         <label for="filter-type">Filter by Activity Type</label>
                         <select id="filter-type">
                             <option value="">All Types</option>
-                            <option value="Inspection">Inspection</option>
-                            <option value="Follow-up">Follow-up</option>
-                            <option value="Complaint Investigation">Complaint Investigation</option>
-                            <option value="Sampling">Sampling</option>
-                            <option value="Education/Training">Education/Training</option>
+                            <option value="Inspection">GDP Inspection</option>
+                            <option value="Follow-up">Routine surveillance</option>
+                            <option value="Complaint Investigation">ConsumerComplaint Investigation</option>
+                            <option value="Sampling">Consultative Meeting/option>
+                            <option value="Education/Training">GLSI Inspection/option>
                             <option value="Other">Other</option>
                         </select>
                     </div>
@@ -363,6 +368,7 @@
                             <th>Observation/Action</th>
                             <th>Officers</th>
                             <th>Actions</th>
+                            <th>Recommendation</th>
                         </tr>
                     </thead>
                     <tbody id="records-body">
