@@ -485,6 +485,7 @@
                 activityType: document.getElementById('activityType').value,
                 observation: document.getElementById('observation').value,
                 officers: document.getElementById('officers').value.split(',').map(o => o.trim()),
+                Recommendation: document.getElementById('Recommendation').value,
             };
             
             activities.push(newActivity);
@@ -646,7 +647,7 @@
         
         // Generate activity type distribution chart
         function generateActivityTypeChart(activities) {
-            const activityTypes = ['Inspection', 'Follow-up', 'Complaint Investigation', 'Sampling', 'Education/Training', 'Other'];
+            const activityTypes = ['GDP Inspection', 'Routine Surveillance', 'COnsumer Complaint Investigation', 'Consultative meeting', 'GLSI Inspection', 'Other'];
             const counts = activityTypes.map(type => {
                 return activities.filter(a => a.activityType === type).length;
             });
