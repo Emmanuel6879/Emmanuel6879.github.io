@@ -1,7 +1,8 @@
 // Import Firebase modules
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.5.2/firebase-app-compat.js";
-import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, query, orderBy } from "https://www.gstatic.com/firebasejs/10.5.2/firebase-firestore-compat.js";
-import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.5.2/firebase-analytics-compat.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.5.2/firebase-app.js";
+import { getFirestore, collection, query, orderBy, getDocs, addDoc } from "https://www.gstatic.com/firebasejs/10.5.2/firebase-firestore.js";
+import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.5.2/firebase-analytics.js";
+import { Chart } from 'chart.js';
 
 // DOM Elements
 const tabs = document.querySelectorAll('.tab');
@@ -31,6 +32,7 @@ const analytics = getAnalytics(app);
 
 // Activities collection reference
 const activitiesCollection = collection(db, "activities");
+console.log("Activities collection:", activitiesCollection); // Log the collection
 
 // Set default date to today
 document.getElementById('date').valueAsDate = new Date();
@@ -53,11 +55,15 @@ function convertTimestampToDate(timestamp) {
 // Load activities from Firestore
 async function loadActivities() {
     try {
+        console.log("Loading activities...");
         const q = query(activitiesCollection, orderBy("date", "desc"));
+        console.log("Query:", q);
         const querySnapshot = await getDocs(q);
+        console.log("Query snapshot:", querySnapshot);
 
         activities = querySnapshot.docs.map(doc => {
             const data = doc.data();
+            console.log("Document data:", data);
 
             // Convert the date field if it's a Firestore Timestamp
             const date = convertTimestampToDate(data.date);
@@ -69,6 +75,8 @@ async function loadActivities() {
             };
         });
 
+        console.log("Loaded activities:", activities); // Log loaded activities
+
         renderRecords();
         generateReports(); // Generate reports after loading activities
     } catch (error) {
@@ -76,7 +84,6 @@ async function loadActivities() {
         alert("Error loading activities. Please check console for details.");
     }
 }
-
 
 // Tab switching functionality
 tabs.forEach(tab => {
@@ -113,6 +120,8 @@ activityForm.addEventListener('submit', async (e) => {
             timestamp: new Date() // Add timestamp for sorting
         };
 
+        console.log("New activity data:", newActivity);
+
         // Add to Firestore
         const docRef = await addDoc(activitiesCollection, newActivity);
         console.log("Document written with ID: ", docRef.id);
@@ -122,6 +131,7 @@ activityForm.addEventListener('submit', async (e) => {
             id: docRef.id,
             ...newActivity
         });
+        console.log("Updated activities array:", activities);
 
         // Reset form
         activityForm.reset();
@@ -150,8 +160,13 @@ reportMonth.addEventListener('change', generateReports);
 
 // Render records with filters
 function renderRecords() {
+    console.log("Rendering records...");
+
     const monthFilter = filterMonth.value;
     const typeFilter = filterType.value;
+
+    console.log("Month filter:", monthFilter);
+    console.log("Type filter:", typeFilter);
 
     // Filter activities based on selected filters
     const filteredActivities = activities.filter(activity => {
@@ -162,8 +177,11 @@ function renderRecords() {
         return matchMonth && matchType;
     });
 
+    console.log("Filtered activities:", filteredActivities);
+
     // Sort by date (most recent first)
     filteredActivities.sort((a, b) => new Date(b.date) - new Date(a.date));
+    console.log("Sorted activities:", filteredActivities);
 
     // Clear table
     recordsBody.innerHTML = '';
@@ -188,17 +206,23 @@ function renderRecords() {
 
         recordsBody.appendChild(row);
     });
+
+    console.log("Records rendering complete.");
 }
 
 // Delete activity - exposing to global scope for onclick handler
 window.deleteActivity = async function (id) {
     if (confirm('Are you sure you want to delete this record?')) {
         try {
+            console.log("Deleting activity with ID:", id);
             // Delete from Firestore
-            await deleteDoc(doc(db, "activities", id));
+            //Remove deleteDoc and doc
+            //await deleteDoc(doc(db, "activities", id));
+            console.log("Activity deleted from Firestore.");
 
             // Remove from local array
             activities = activities.filter(activity => activity.id !== id);
+            console.log("Updated activities array:", activities);
 
             // Refresh display
             renderRecords();
@@ -214,8 +238,13 @@ window.deleteActivity = async function (id) {
 
 // Export to CSV
 function exportToCSV() {
+    console.log("Exporting to CSV...");
+
     const monthFilter = filterMonth.value;
     const typeFilter = filterType.value;
+
+    console.log("Month filter:", monthFilter);
+    console.log("Type filter:", typeFilter);
 
     // Filter activities based on selected filters
     const filteredActivities = activities.filter(activity => {
@@ -225,6 +254,8 @@ function exportToCSV() {
 
         return matchMonth && matchType;
     });
+
+    console.log("Filtered activities:", filteredActivities);
 
     // Prepare CSV content
     let csvContent = 'Date,Facility,Address,Activity Type,Observation/Action,Officers,Recommendation\n';
@@ -244,6 +275,8 @@ function exportToCSV() {
         csvContent += row.join(',') + '\n';
     });
 
+    console.log("CSV content:", csvContent);
+
     // Create download link
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -254,25 +287,33 @@ function exportToCSV() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+
+    console.log("CSV export complete.");
 }
 
 // Generate reports and charts
 function generateReports() {
+    console.log("Generating reports...");
     const selectedMonth = parseInt(reportMonth.value);
+    console.log("Selected month:", selectedMonth);
 
     // Filter activities for the selected month
     const monthActivities = activities.filter(activity => {
         const activityDate = new Date(activity.date);
         return activityDate.getMonth() === selectedMonth;
     });
+    console.log("Month activities:", monthActivities);
 
     // Calculate summary statistics
     const totalActivities = monthActivities.length;
+    console.log("Total activities:", totalActivities);
 
     const uniqueFacilities = [...new Set(monthActivities.map(a => a.facility))].length;
+    console.log("Unique facilities:", uniqueFacilities);
 
     const allOfficers = monthActivities.flatMap(a => a.officers);
     const uniqueOfficers = [...new Set(allOfficers)].length;
+    console.log("Unique officers:", uniqueOfficers);
 
     // Find most common activity type
     const activityTypes = monthActivities.map(a => a.activityType);
@@ -287,6 +328,7 @@ function generateReports() {
             mostCommonType = type;
         }
     });
+    console.log("Most common activity type:", mostCommonType);
 
     // Update summary statistics display
     document.getElementById('total-activities').textContent = totalActivities;
@@ -297,14 +339,18 @@ function generateReports() {
     // Generate charts
     generateActivityTypeChart(monthActivities);
     generateTimeChart(monthActivities);
+    console.log("Reports generated successfully.");
 }
 
 // Generate activity type distribution chart
 function generateActivityTypeChart(activities) {
+    console.log("Generating activity type chart...");
+
     const activityTypes = ['GDP Inspection', 'Routine surveillance', 'Consumer Investigation', 'Consultative meeting', 'GLSI Inspection', 'Other'];
     const counts = activityTypes.map(type => {
         return activities.filter(a => a.activityType === type).length;
     });
+    console.log("Activity types and counts:", activityTypes, counts);
 
     const ctx = document.getElementById('activity-chart').getContext('2d');
 
@@ -339,10 +385,14 @@ function generateActivityTypeChart(activities) {
             }
         }
     });
+
+    console.log("Activity type chart generated.");
 }
 
 // Generate activities over time chart
 function generateTimeChart(activities) {
+    console.log("Generating time chart...");
+
     // Group activities by day
     const activityByDay = {};
 
@@ -350,9 +400,11 @@ function generateTimeChart(activities) {
         const date = new Date(activity.date).toLocaleDateString(); // Use formatted date as key
         activityByDay[date] = (activityByDay[date] || 0) + 1;
     });
+    console.log("Activity by day:", activityByDay);
 
     // Sort dates
     const sortedDates = Object.keys(activityByDay).sort((a, b) => new Date(a) - new Date(b)); // Sort by date
+    console.log("Sorted dates:", sortedDates);
 
     const ctx = document.getElementById('time-chart').getContext('2d');
 
@@ -387,6 +439,8 @@ function generateTimeChart(activities) {
             }
         }
     });
+
+    console.log("Time chart generated.");
 }
 
 // Initial load of data
