@@ -1,6 +1,15 @@
 // Import Firebase modules
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.3.1/firebase-app.js";
-import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, query, orderBy } from "https://www.gstatic.com/firebasejs/11.3.1/firebase-firestore.js";
+import { 
+  getFirestore, 
+  collection, 
+  addDoc, 
+  getDocs, 
+  deleteDoc, 
+  doc, 
+  query, 
+  orderBy
+} from "https://www.gstatic.com/firebasejs/11.3.1/firebase-firestore.js";
 import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.3.1/firebase-analytics.js";
 
 // DOM Elements
@@ -18,7 +27,7 @@ const firebaseConfig = {
   apiKey: "AIzaSyAy8F1-_npmdlqkZnZMh3TgjnLZqPBcg0k",
   authDomain: "dailyactivity-ddd22.firebaseapp.com",
   projectId: "dailyactivity-ddd22",
-  storageBucket: "dailyactivity-ddd22.firebasestorage.app",
+  storageBucket: "dailyactivity-ddd22.appspot.com",
   messagingSenderId: "190226737067",
   appId: "1:190226737067:web:f24e3765f02485f93094ee",
   measurementId: "G-4YW1XJ8XYQ"
@@ -52,10 +61,15 @@ async function loadActivities() {
       id: doc.id,
       ...doc.data(),
       // Convert Firestore Timestamp to string for date field if needed
-      date: doc.data().date instanceof Date ? doc.data().date.toISOString().split('T')[0] : doc.data().date
+      date: doc.data().date instanceof Date ? 
+            doc.data().date.toISOString().split('T')[0] : 
+            doc.data().date
     }));
     
     renderRecords();
+    if (document.getElementById('reports').classList.contains('active')) {
+      generateReports();
+    }
   } catch (error) {
     console.error("Error loading activities: ", error);
     alert("Error loading activities. Please check console for details.");
@@ -94,7 +108,7 @@ activityForm.addEventListener('submit', async (e) => {
       observation: document.getElementById('observation').value,
       officers: document.getElementById('officers').value.split(',').map(o => o.trim()),
       recommendation: document.getElementById('recommendation').value,
-      timestamp: new Date() // Add timestamp for sorting
+      timestamp: new Date()
     };
     
     // Add to Firestore
@@ -251,9 +265,7 @@ function generateReports() {
   
   // Calculate summary statistics
   const totalActivities = monthActivities.length;
-  
   const uniqueFacilities = [...new Set(monthActivities.map(a => a.facility))].length;
-  
   const allOfficers = monthActivities.flatMap(a => a.officers);
   const uniqueOfficers = [...new Set(allOfficers)].length;
   
