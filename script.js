@@ -1,233 +1,241 @@
-// --- Firebase Imports (Compat Mode) ---
-import firebase from "https://www.gstatic.com/firebasejs/10.5.2/firebase-app-compat.js";
-import "https://www.gstatic.com/firebasejs/10.5.2/firebase-firestore-compat.js";
-import "https://www.gstatic.com/firebasejs/10.5.2/firebase-auth-compat.js";
-import "https://www.gstatic.com/firebasejs/10.5.2/firebase-analytics-compat.js";
+// ======================
+// FIREBASE INITIALIZATION
+// ======================
 
-// --- Firebase Configuration ---
-const firebaseConfig = {
-    apiKey: "AIzaSyAy8F1-_npmdlqkZnZMh3TgjnLZqPBcg0k",
-    authDomain: "dailyactivity-ddd22.firebaseapp.com",
-    projectId: "dailyactivity-ddd22",
-    storageBucket: "dailyactivity-ddd22.appspot.com",
-    messagingSenderId: "190226737067",
-    appId: "1:190226737067:web:f24e3765f02485f93094ee",
-    measurementId: "G-4YW1XJ8XYQ"
-};
-
-// --- Initialize Firebase ---
-const app = firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
-const auth = firebase.auth();
-const analytics = firebase.analytics();
-
-// --- DOM Elements ---
-const loadingOverlay = document.getElementById('loading-overlay');
-const toastContainer = document.getElementById('toast-container');
-const authContainer = document.getElementById('auth-container');
-const appContainer = document.getElementById('app-container');
-const userEmailDisplay = document.getElementById('user-email');
-const syncStatus = document.getElementById('sync-status');
-const logoutBtn = document.getElementById('logout-btn');
-const activityForm = document.getElementById('activity-form');
-const dateInput = document.getElementById('date');
-const recordsBody = document.getElementById('records-body');
-const usersBody = document.getElementById('users-body');
-
-// --- App State ---
-let currentUser = null;
-let activities = [];
-let currentPage = 1;
-const itemsPerPage = 15;
-let activityChart = null, timeChart = null, facilityChart = null, officerChart = null;
-
-// --- Initialize App ---
-function initApp() {
-    setupEventListeners();
-    setupAuthStateObserver();
-    enableFirestorePersistence();
-    
-    // Set default date
-    const today = new Date();
-    dateInput.value = today.toISOString().split('T')[0];
-    document.getElementById('report-month').value = today.getMonth();
-    
-    hideLoading();
-}
-
-// --- Auth State Management ---
-function setupAuthStateObserver() {
-    auth.onAuthStateChanged(async (user) => {
-        if (user) {
-            currentUser = user;
-            await handleAuthenticatedUser(user);
-        } else {
-            handleUnauthenticatedUser();
-        }
+// Load Firebase libraries
+const firebaseScripts = [
+    'https://www.gstatic.com/firebasejs/10.5.2/firebase-app-compat.js',
+    'https://www.gstatic.com/firebasejs/10.5.2/firebase-firestore-compat.js',
+    'https://www.gstatic.com/firebasejs/10.5.2/firebase-auth-compat.js',
+    'https://www.gstatic.com/firebasejs/10.5.2/firebase-analytics-compat.js'
+  ];
+  
+  // Load scripts sequentially
+  function loadScript(url) {
+    return new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = url;
+      script.onload = resolve;
+      script.onerror = reject;
+      document.head.appendChild(script);
     });
-}
-
-async function handleAuthenticatedUser(user) {
-    authContainer.style.display = 'none';
-    appContainer.style.display = 'block';
-    userEmailDisplay.textContent = user.email;
-    
-    if (!user.emailVerified) {
-        showToast('Please verify your email', 'warning');
+  }
+  
+  async function loadFirebase() {
+    for (const url of firebaseScripts) {
+      await loadScript(url);
     }
-
-    // Check admin status
-    const isAdmin = await checkAdminStatus(user);
-    document.getElementById('users-tab').style.display = isAdmin ? 'block' : 'none';
-    
-    await loadActivities();
-}
-
-function handleUnauthenticatedUser() {
-    authContainer.style.display = 'block';
-    appContainer.style.display = 'none';
-    resetAppState();
-}
-
-// --- Firestore Operations ---
-async function loadActivities() {
-    try {
-        showLoading();
-        
-        let query = db.collection('activities').orderBy('timestamp', 'desc');
-        
-        if (!(await isAdmin())) {
-            query = query.where('userId', '==', currentUser.uid);
-        }
-
-        const snapshot = await query.get();
-        activities = snapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data(),
-            date: doc.data().date?.toDate()
-        }));
-
-        renderActivities();
-        generateReports();
-    } catch (error) {
-        showToast(`Error loading data: ${error.message}`, 'error');
-    } finally {
-        hideLoading();
-    }
-}
-
-// --- Activity Form Handling ---
-async function handleActivitySubmission(e) {
-    e.preventDefault();
-    
-    if (!currentUser) {
-        showToast("Please login first", "error");
-        return;
-    }
-
-    const newActivity = {
-        date: new Date(dateInput.value),
-        facility: document.getElementById('facility').value.trim(),
-        address: document.getElementById('address').value.trim(),
-        activityType: document.getElementById('activityType').value,
-        observation: document.getElementById('observation').value.trim(),
-        officers: document.getElementById('officers').value.split(',').map(o => o.trim()),
-        recommendation: document.getElementById('recommendation').value.trim(),
-        timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-        userId: currentUser.uid,
-        userEmail: currentUser.email
+  }
+  
+  // ======================
+  // MAIN APPLICATION CODE
+  // ======================
+  
+  async function initializeApp() {
+    // 1. Load Firebase
+    await loadFirebase();
+  
+    // 2. Firebase Config
+    const firebaseConfig = {
+      apiKey: "AIzaSyAy8F1-_npmdlqkZnZMh3TgjnLZqPBcg0k",
+      authDomain: "dailyactivity-ddd22.firebaseapp.com",
+      projectId: "dailyactivity-ddd22",
+      storageBucket: "dailyactivity-ddd22.appspot.com",
+      messagingSenderId: "190226737067",
+      appId: "1:190226737067:web:f24e3765f02485f93094ee",
+      measurementId: "G-4YW1XJ8XYQ"
     };
-
-    try {
+  
+    // 3. Initialize Firebase
+    const app = firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    const auth = firebase.auth();
+  
+    // 4. Enable Persistence
+    db.enablePersistence().catch(err => {
+      console.error("Offline support error:", err);
+    });
+  
+    // ======================
+    // DOM ELEMENTS
+    // ======================
+    const elements = {
+      loadingOverlay: document.getElementById('loading-overlay'),
+      authContainer: document.getElementById('auth-container'),
+      appContainer: document.getElementById('app-container'),
+      userEmail: document.getElementById('user-email'),
+      loginForm: document.getElementById('login-form'),
+      registerForm: document.getElementById('register-form'),
+      activityForm: document.getElementById('activity-form'),
+      recordsBody: document.getElementById('records-body'),
+      exportBtn: document.getElementById('export-btn'),
+      filterMonth: document.getElementById('filter-month'),
+      filterType: document.getElementById('filter-type')
+    };
+  
+    // ======================
+    // APP STATE
+    // ======================
+    let currentUser = null;
+    let activities = [];
+  
+    // ======================
+    // AUTHENTICATION
+    // ======================
+    auth.onAuthStateChanged(user => {
+      if (user) {
+        currentUser = user;
+        handleAuthenticatedUser(user);
+      } else {
+        handleUnauthenticatedUser();
+      }
+    });
+  
+    function handleAuthenticatedUser(user) {
+      elements.authContainer.style.display = 'none';
+      elements.appContainer.style.display = 'block';
+      elements.userEmail.textContent = user.email;
+      loadActivities();
+    }
+  
+    function handleUnauthenticatedUser() {
+      elements.authContainer.style.display = 'block';
+      elements.appContainer.style.display = 'none';
+      currentUser = null;
+      activities = [];
+    }
+  
+    // ======================
+    // DATA MANAGEMENT
+    // ======================
+    async function loadActivities() {
+      try {
         showLoading();
-        await db.collection('activities').add(newActivity);
-        showToast('Activity saved!', 'success');
-        activityForm.reset();
-        dateInput.value = new Date().toISOString().split('T')[0];
-        await loadActivities();
-    } catch (error) {
-        showToast(`Save failed: ${error.message}`, 'error');
-    } finally {
+        const snapshot = await db.collection('activities')
+          .where('userId', '==', currentUser.uid)
+          .orderBy('date', 'desc')
+          .get();
+        
+        activities = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+          date: doc.data().date.toDate()
+        }));
+        
+        renderActivities();
+      } catch (error) {
+        showToast(error.message, 'error');
+      } finally {
         hideLoading();
+      }
     }
-}
-
-// --- Chart Functions ---
-function generateReports() {
-    const month = parseInt(document.getElementById('report-month').value);
-    const monthActivities = activities.filter(a => a.date?.getMonth() === month);
-    
-    updateSummaryStats(monthActivities);
-    renderCharts(monthActivities);
-}
-
-function renderCharts(activities) {
-    // Destroy existing charts
-    [activityChart, timeChart, facilityChart, officerChart].forEach(chart => {
-        if (chart) chart.destroy();
-    });
-
-    // Activity Type Chart
-    const typeCounts = {};
-    activities.forEach(a => typeCounts[a.activityType] = (typeCounts[a.activityType] || 0) + 1);
-    activityChart = new Chart(document.getElementById('activity-chart'), {
-        type: 'doughnut',
-        data: {
-            labels: Object.keys(typeCounts),
-            datasets: [{ data: Object.values(typeCounts) }]
-        }
-    });
-
-    // Time Chart (activities per day)
-    const dayCounts = Array(31).fill(0);
-    activities.forEach(a => {
-        if (a.date) dayCounts[a.date.getDate() - 1]++;
-    });
-    timeChart = new Chart(document.getElementById('time-chart'), {
-        type: 'line',
-        data: {
-            labels: Array.from({length: 31}, (_, i) => i + 1),
-            datasets: [{ data: dayCounts }]
-        }
-    });
-}
-
-// --- Helper Functions ---
-function showToast(message, type = 'success') {
-    const toast = document.createElement('div');
-    toast.className = `toast ${type}`;
-    toast.innerHTML = `
-        <i class="fas ${type === 'error' ? 'fa-times-circle' : 'fa-check-circle'}"></i>
-        <span>${message}</span>
-        <button onclick="this.parentElement.remove()">×</button>
-    `;
-    toastContainer.appendChild(toast);
-    setTimeout(() => toast.remove(), 5000);
-}
-
-function showLoading() {
-    loadingOverlay.style.display = 'flex';
-}
-
-function hideLoading() {
-    loadingOverlay.style.display = 'none';
-}
-
-// --- Initialize App ---
-document.addEventListener('DOMContentLoaded', initApp);
-
-// Make functions available globally for HTML onclick handlers
-window.deleteActivity = async function(id) {
-    if (confirm('Delete this activity?')) {
-        try {
-            showLoading();
-            await db.collection('activities').doc(id).delete();
-            await loadActivities();
-            showToast('Activity deleted', 'success');
-        } catch (error) {
-            showToast(`Delete failed: ${error.message}`, 'error');
-        } finally {
-            hideLoading();
-        }
+  
+    // ======================
+    // CSV EXPORT FUNCTIONALITY
+    // ======================
+    elements.exportBtn.addEventListener('click', exportToCSV);
+  
+    function exportToCSV() {
+      if (activities.length === 0) {
+        showToast("No data to export", "warning");
+        return;
+      }
+  
+      // Get filtered data based on current filters
+      const filteredActivities = getFilteredActivities();
+      
+      // Prepare CSV headers
+      const headers = [
+        'Date', 'Facility', 'Address', 'Activity Type', 
+        'Observation', 'Officers', 'Recommendation'
+      ];
+      
+      // Prepare CSV rows
+      const rows = filteredActivities.map(activity => {
+        return [
+          formatDateForCSV(activity.date),
+          escapeCSV(activity.facility),
+          escapeCSV(activity.address),
+          escapeCSV(activity.activityType),
+          escapeCSV(activity.observation),
+          escapeCSV(activity.officers.join(', ')),
+          escapeCSV(activity.recommendation)
+        ];
+      });
+  
+      // Combine headers and rows
+      const csvContent = [headers, ...rows]
+        .map(row => row.join(','))
+        .join('\n');
+  
+      // Create download link
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `activities_${new Date().toISOString().slice(0,10)}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      showToast("CSV exported successfully", "success");
     }
-};
+  
+    function getFilteredActivities() {
+      const monthFilter = elements.filterMonth.value;
+      const typeFilter = elements.filterType.value;
+      
+      return activities.filter(activity => {
+        const matchesMonth = monthFilter === '' || 
+          activity.date.getMonth() === parseInt(monthFilter);
+        const matchesType = typeFilter === '' || 
+          activity.activityType === typeFilter;
+        return matchesMonth && matchesType;
+      });
+    }
+  
+    function formatDateForCSV(date) {
+      return date.toISOString().split('T')[0];
+    }
+  
+    function escapeCSV(str) {
+      if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return str;
+    }
+  
+    // ======================
+    // HELPER FUNCTIONS
+    // ======================
+    function showLoading() {
+      elements.loadingOverlay.style.display = 'flex';
+    }
+  
+    function hideLoading() {
+      elements.loadingOverlay.style.display = 'none';
+    }
+  
+    function showToast(message, type = 'success') {
+      const toast = document.createElement('div');
+      toast.className = `toast ${type}`;
+      toast.innerHTML = `
+        <i class="fas ${type === 'error' ? 'fa-exclamation-circle' : 'fa-check-circle'}"></i>
+        ${message}
+        <span class="close" onclick="this.parentElement.remove()">×</span>
+      `;
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 5000);
+    }
+  
+    // ======================
+    // INITIALIZE APP
+    // ======================
+    hideLoading();
+    document.getElementById('date').valueAsDate = new Date();
+    elements.exportBtn.addEventListener('click', exportToCSV);
+  }
+  
+  // Start the app when DOM is ready
+  document.addEventListener('DOMContentLoaded', initializeApp);
