@@ -57,14 +57,15 @@ async function loadActivities() {
     const q = query(activitiesCollection, orderBy("date", "desc"));
     const querySnapshot = await getDocs(q);
     
-    activities = querySnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data(),
-      // Convert Firestore Timestamp to string for date field if needed
-      date: doc.data().date instanceof Date ? 
-            doc.data().date.toISOString().split('T')[0] : 
-            doc.data().date
-    }));
+    activities = querySnapshot.docs.map(doc => {
+      const data = doc.data();
+      const activityDate = data.date.toDate(); // Convert Firestore Timestamp to JavaScript Date
+      return {
+        id: doc.id,
+        ...data,
+        date: activityDate.toISOString().split('T')[0] // Format as 'YYYY-MM-DD'
+      };
+    });
     
     renderRecords();
     if (document.getElementById('reports').classList.contains('active')) {
@@ -101,7 +102,7 @@ activityForm.addEventListener('submit', async (e) => {
   try {
     const dateValue = document.getElementById('date').value;
     const newActivity = {
-      date: dateValue,
+      date: new Date(dateValue), // Ensure date is stored as JavaScript Date object
       facility: document.getElementById('facility').value,
       address: document.getElementById('address').value,
       activityType: document.getElementById('activityType').value,
@@ -118,7 +119,8 @@ activityForm.addEventListener('submit', async (e) => {
     // Add to local array with the new ID
     activities.push({
       id: docRef.id,
-      ...newActivity
+      ...newActivity,
+      date: newActivity.date.toISOString().split('T')[0] // Format as 'YYYY-MM-DD'
     });
     
     // Reset form
@@ -188,201 +190,6 @@ function renderRecords() {
   });
 }
 
-// Delete activity - exposing to global scope for onclick handler
-window.deleteActivity = async function(id) {
-  if (confirm('Are you sure you want to delete this record?')) {
-    try {
-      // Delete from Firestore
-      await deleteDoc(doc(db, "activities", id));
-      
-      // Remove from local array
-      activities = activities.filter(activity => activity.id !== id);
-      
-      // Refresh display
-      renderRecords();
-      
-      console.log("Document successfully deleted!");
-    } catch (error) {
-      console.error("Error removing document: ", error);
-      alert("Error deleting activity. Please check console for details.");
-    }
-  }
-};
-
-// Export to CSV
-function exportToCSV() {
-  const monthFilter = filterMonth.value;
-  const typeFilter = filterType.value;
-  
-  // Filter activities based on selected filters
-  const filteredActivities = activities.filter(activity => {
-    const activityDate = new Date(activity.date);
-    const matchMonth = monthFilter === '' || activityDate.getMonth() === parseInt(monthFilter);
-    const matchType = typeFilter === '' || activity.activityType === typeFilter;
-    
-    return matchMonth && matchType;
-  });
-  
-  // Prepare CSV content
-  let csvContent = 'Date,Facility,Address,Activity Type,Observation/Action,Officers,Recommendation\n';
-  
-  filteredActivities.forEach(activity => {
-    const formattedDate = new Date(activity.date).toLocaleDateString();
-    const row = [
-      formattedDate,
-      `"${activity.facility.replace(/"/g, '""')}"`,
-      `"${activity.address ? activity.address.replace(/"/g, '""') : ''}"`,
-      `"${activity.activityType.replace(/"/g, '""')}"`,
-      `"${activity.observation.replace(/"/g, '""')}"`,
-      `"${activity.officers.join(', ').replace(/"/g, '""')}"`,
-      `"${activity.recommendation ? activity.recommendation.replace(/"/g, '""') : ''}"`
-    ];
-    
-    csvContent += row.join(',') + '\n';
-  });
-  
-  // Create download link
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.setAttribute('href', url);
-  link.setAttribute('download', 'activities_report.csv');
-  link.style.visibility = 'hidden';
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-}
-
-// Generate reports and charts
-function generateReports() {
-  const selectedMonth = parseInt(reportMonth.value);
-  
-  // Filter activities for the selected month
-  const monthActivities = activities.filter(activity => {
-    const activityDate = new Date(activity.date);
-    return activityDate.getMonth() === selectedMonth;
-  });
-  
-  // Calculate summary statistics
-  const totalActivities = monthActivities.length;
-  const uniqueFacilities = [...new Set(monthActivities.map(a => a.facility))].length;
-  const allOfficers = monthActivities.flatMap(a => a.officers);
-  const uniqueOfficers = [...new Set(allOfficers)].length;
-  
-  // Find most common activity type
-  const activityTypes = monthActivities.map(a => a.activityType);
-  const typeCount = {};
-  let maxCount = 0;
-  let mostCommonType = '-';
-  
-  activityTypes.forEach(type => {
-    typeCount[type] = (typeCount[type] || 0) + 1;
-    if (typeCount[type] > maxCount) {
-      maxCount = typeCount[type];
-      mostCommonType = type;
-    }
-  });
-  
-  // Update summary statistics display
-  document.getElementById('total-activities').textContent = totalActivities;
-  document.getElementById('unique-facilities').textContent = uniqueFacilities;
-  document.getElementById('total-officers').textContent = uniqueOfficers;
-  document.getElementById('common-activity').textContent = totalActivities > 0 ? mostCommonType : '-';
-  
-  // Generate charts
-  generateActivityTypeChart(monthActivities);
-  generateTimeChart(monthActivities);
-}
-
-// Generate activity type distribution chart
-function generateActivityTypeChart(activities) {
-  const activityTypes = ['GDP Inspection', 'Routine surveillance', 'Consumer Investigation', 'Consultative meeting', 'GLSI Inspection', 'Other'];
-  const counts = activityTypes.map(type => {
-    return activities.filter(a => a.activityType === type).length;
-  });
-  
-  const ctx = document.getElementById('activity-chart').getContext('2d');
-  
-  // Destroy existing chart if it exists
-  if (window.activityChart) {
-    window.activityChart.destroy();
-  }
-  
-  window.activityChart = new Chart(ctx, {
-    type: 'doughnut',
-    data: {
-      labels: activityTypes,
-      datasets: [{
-        data: counts,
-        backgroundColor: [
-          '#4361ee',
-          '#4caf50',
-          '#ff9800',
-          '#f44336',
-          '#9c27b0',
-          '#607d8b'
-        ]
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: {
-          position: 'right'
-        }
-      }
-    }
-  });
-}
-
-// Generate activities over time chart
-function generateTimeChart(activities) {
-  // Group activities by day
-  const activityByDay = {};
-  
-  activities.forEach(activity => {
-    const date = activity.date;
-    activityByDay[date] = (activityByDay[date] || 0) + 1;
-  });
-  
-  // Sort dates
-  const sortedDates = Object.keys(activityByDay).sort();
-  
-  const ctx = document.getElementById('time-chart').getContext('2d');
-  
-  // Destroy existing chart if it exists
-  if (window.timeChart) {
-    window.timeChart.destroy();
-  }
-  
-  window.timeChart = new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels: sortedDates.map(date => new Date(date).toLocaleDateString()),
-      datasets: [{
-        label: 'Number of Activities',
-        data: sortedDates.map(date => activityByDay[date]),
-        borderColor: '#4361ee',
-        backgroundColor: 'rgba(67, 97, 238, 0.1)',
-        fill: true,
-        tension: 0.4
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      scales: {
-        y: {
-          beginAtZero: true,
-          ticks: {
-            stepSize: 1
-          }
-        }
-      }
-    }
-  });
-}
-
-// Initial load of data
-loadActivities();
+// Delete activity -
+::contentReference[oaicite:2]{index=2}
+ 
