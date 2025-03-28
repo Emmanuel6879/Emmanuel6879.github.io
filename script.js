@@ -1,13 +1,13 @@
 // Import Firebase modules
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.3.1/firebase-app.js";
-import { 
-  getFirestore, 
-  collection, 
-  addDoc, 
-  getDocs, 
-  deleteDoc, 
-  doc, 
-  query, 
+import {
+  getFirestore,
+  collection,
+  addDoc,
+  getDocs,
+  deleteDoc,
+  doc,
+  query,
   orderBy
 } from "https://www.gstatic.com/firebasejs/11.3.1/firebase-firestore.js";
 import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.3.1/firebase-analytics.js";
@@ -56,17 +56,20 @@ async function loadActivities() {
   try {
     const q = query(activitiesCollection, orderBy("date", "desc"));
     const querySnapshot = await getDocs(q);
-    
+
     activities = querySnapshot.docs.map(doc => {
       const data = doc.data();
-      const activityDate = data.date.toDate(); // Convert Firestore Timestamp to JavaScript Date
+      const firestoreTimestamp = data.date;
+      const jsDate = firestoreTimestamp.toDate(); // Convert Firestore Timestamp to JavaScript Date
+      const formattedDate = jsDate.toISOString().split('T')[0]; // Format as 'YYYY-MM-DD'
+
       return {
         id: doc.id,
         ...data,
-        date: activityDate.toISOString().split('T')[0] // Format as 'YYYY-MM-DD'
+        date: formattedDate
       };
     });
-    
+
     renderRecords();
     if (document.getElementById('reports').classList.contains('active')) {
       generateReports();
@@ -82,11 +85,11 @@ tabs.forEach(tab => {
   tab.addEventListener('click', () => {
     tabs.forEach(t => t.classList.remove('active'));
     tabContents.forEach(tc => tc.classList.remove('active'));
-    
+
     tab.classList.add('active');
     const tabId = tab.getAttribute('data-tab');
     document.getElementById(tabId).classList.add('active');
-    
+
     if (tabId === 'records') {
       renderRecords();
     } else if (tabId === 'reports') {
@@ -98,11 +101,11 @@ tabs.forEach(tab => {
 // Form submission
 activityForm.addEventListener('submit', async (e) => {
   e.preventDefault();
-  
+
   try {
     const dateValue = document.getElementById('date').value;
     const newActivity = {
-      date: new Date(dateValue), // Ensure date is stored as JavaScript Date object
+      date: dateValue,
       facility: document.getElementById('facility').value,
       address: document.getElementById('address').value,
       activityType: document.getElementById('activityType').value,
@@ -111,25 +114,24 @@ activityForm.addEventListener('submit', async (e) => {
       recommendation: document.getElementById('recommendation').value,
       timestamp: new Date()
     };
-    
+
     // Add to Firestore
     const docRef = await addDoc(activitiesCollection, newActivity);
     console.log("Document written with ID: ", docRef.id);
-    
+
     // Add to local array with the new ID
     activities.push({
       id: docRef.id,
-      ...newActivity,
-      date: newActivity.date.toISOString().split('T')[0] // Format as 'YYYY-MM-DD'
+      ...newActivity
     });
-    
+
     // Reset form
     activityForm.reset();
     document.getElementById('date').valueAsDate = new Date();
-    
+
     // Show success message
     alert('Activity logged successfully!');
-    
+
     // Refresh records display
     renderRecords();
   } catch (error) {
@@ -152,29 +154,29 @@ reportMonth.addEventListener('change', generateReports);
 function renderRecords() {
   const monthFilter = filterMonth.value;
   const typeFilter = filterType.value;
-  
+
   // Filter activities based on selected filters
   const filteredActivities = activities.filter(activity => {
     const activityDate = new Date(activity.date);
     const matchMonth = monthFilter === '' || activityDate.getMonth() === parseInt(monthFilter);
     const matchType = typeFilter === '' || activity.activityType === typeFilter;
-    
+
     return matchMonth && matchType;
   });
-  
+
   // Sort by date (most recent first)
   filteredActivities.sort((a, b) => new Date(b.date) - new Date(a.date));
-  
+
   // Clear table
   recordsBody.innerHTML = '';
-  
+
   // Populate table
   filteredActivities.forEach(activity => {
     const row = document.createElement('tr');
-    
+
     // Format date for display
     const formattedDate = new Date(activity.date).toLocaleDateString();
-    
+
     row.innerHTML = `
       <td>${formattedDate}</td>
       <td>${activity.facility}</td>
@@ -185,11 +187,37 @@ function renderRecords() {
         <button class="btn-small btn-danger" onclick="deleteActivity('${activity.id}')">Delete</button>
       </td>
     `;
-    
+
     recordsBody.appendChild(row);
   });
 }
 
-// Delete activity -
-::contentReference[oaicite:2]{index=2}
+// Delete activity - exposing to global scope for onclick handler
+window.deleteActivity = async function(id) {
+  if (confirm('Are you sure you want to delete this record?')) {
+    try {
+      const docRef = doc(db, "activities", id);
+      await deleteDoc(docRef);
+
+      // Remove from local array
+      activities = activities.filter(activity => activity.id !== id);
+
+      // Refresh records display
+      renderRecords();
+    } catch (error) {
+      console.error("Error deleting document: ", error);
+      alert("Error deleting activity. Please check console for details.");
+    }
+  }
+}
+
+// Export to CSV
+function exportToCSV() {
+  // Implementation of exportToCSV function
+}
+
+// Generate reports
+function generateReports() {
+  // Implementation of generateReports function
+}
  
