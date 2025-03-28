@@ -8,9 +8,9 @@ import {
   deleteDoc, 
   doc, 
   query, 
-  orderBy,
-  Timestamp
+  orderBy
 } from "https://www.gstatic.com/firebasejs/11.3.1/firebase-firestore.js";
+import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.3.1/firebase-analytics.js";
 
 // DOM Elements
 const tabs = document.querySelectorAll('.tab');
@@ -36,6 +36,7 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
+const analytics = getAnalytics(app);
 
 // Activities collection reference
 const activitiesCollection = collection(db, "activities");
@@ -50,48 +51,100 @@ reportMonth.value = currentMonth;
 // Global activities array
 let activities = [];
 
-// Helper function to format Firestore Timestamp or date string
-function formatActivityDate(date) {
-  // If it's a Firestore Timestamp
-  if (date instanceof Timestamp) {
-    return date.toDate();
-  }
-  // If it's already a Date object
-  if (date instanceof Date) {
-    return date;
-  }
-  // If it's an ISO string
-  if (typeof date === 'string') {
-    return new Date(date);
-  }
-  // Fallback to current date
-  return new Date();
-}
-
 // Load activities from Firestore
 async function loadActivities() {
   try {
     const q = query(activitiesCollection, orderBy("date", "desc"));
     const querySnapshot = await getDocs(q);
     
-    activities = querySnapshot.docs.map(doc => {
-      const data = doc.data();
-      return {
-        id: doc.id,
-        ...data,
-        // Properly handle the date field
-        date: formatActivityDate(data.date)
-      };
-    });
+    activities = querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+      // Convert Firestore Timestamp to string for date field if needed
+      date: doc.data().date instanceof Date ? 
+            doc.data().date.toISOString().split('T')[0] : 
+            doc.data().date
+    }));
     
     renderRecords();
+    if (document.getElementById('reports').classList.contains('active')) {
+      generateReports();
+    }
   } catch (error) {
     console.error("Error loading activities: ", error);
     alert("Error loading activities. Please check console for details.");
   }
 }
 
-// ... [keep all your existing tab switching, form submission code unchanged until renderRecords]
+// Tab switching functionality
+tabs.forEach(tab => {
+  tab.addEventListener('click', () => {
+    tabs.forEach(t => t.classList.remove('active'));
+    tabContents.forEach(tc => tc.classList.remove('active'));
+    
+    tab.classList.add('active');
+    const tabId = tab.getAttribute('data-tab');
+    document.getElementById(tabId).classList.add('active');
+    
+    if (tabId === 'records') {
+      renderRecords();
+    } else if (tabId === 'reports') {
+      generateReports();
+    }
+  });
+});
+
+// Form submission
+activityForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  
+  try {
+    const dateValue = document.getElementById('date').value;
+    const newActivity = {
+      date: dateValue,
+      facility: document.getElementById('facility').value,
+      address: document.getElementById('address').value,
+      activityType: document.getElementById('activityType').value,
+      observation: document.getElementById('observation').value,
+      officers: document.getElementById('officers').value.split(',').map(o => o.trim()),
+      recommendation: document.getElementById('recommendation').value,
+      timestamp: new Date()
+    };
+    
+    // Add to Firestore
+    const docRef = await addDoc(activitiesCollection, newActivity);
+    console.log("Document written with ID: ", docRef.id);
+    
+    // Add to local array with the new ID
+    activities.push({
+      id: docRef.id,
+      ...newActivity
+    });
+    
+    // Reset form
+    activityForm.reset();
+    document.getElementById('date').valueAsDate = new Date();
+    
+    // Show success message
+    alert('Activity logged successfully!');
+    
+    // Refresh records display
+    renderRecords();
+  } catch (error) {
+    console.error("Error adding document: ", error);
+    alert("Error saving activity. Please check console for details.");
+  }
+});
+
+// Filter change event
+filterMonth.addEventListener('change', renderRecords);
+filterType.addEventListener('change', renderRecords);
+
+// Export to CSV
+exportBtn.addEventListener('click', exportToCSV);
+
+// Report month change event
+reportMonth.addEventListener('change', generateReports);
 
 // Render records with filters
 function renderRecords() {
@@ -100,7 +153,7 @@ function renderRecords() {
   
   // Filter activities based on selected filters
   const filteredActivities = activities.filter(activity => {
-    const activityDate = activity.date; // Already a Date object
+    const activityDate = new Date(activity.date);
     const matchMonth = monthFilter === '' || activityDate.getMonth() === parseInt(monthFilter);
     const matchType = typeFilter === '' || activity.activityType === typeFilter;
     
@@ -108,7 +161,7 @@ function renderRecords() {
   });
   
   // Sort by date (most recent first)
-  filteredActivities.sort((a, b) => b.date - a.date);
+  filteredActivities.sort((a, b) => new Date(b.date) - new Date(a.date));
   
   // Clear table
   recordsBody.innerHTML = '';
@@ -117,8 +170,8 @@ function renderRecords() {
   filteredActivities.forEach(activity => {
     const row = document.createElement('tr');
     
-    // Format date for display (DD/MM/YYYY format)
-    const formattedDate = activity.date.toLocaleDateString('en-GB');
+    // Format date for display
+    const formattedDate = new Date(activity.date).toLocaleDateString();
     
     row.innerHTML = `
       <td>${formattedDate}</td>
@@ -135,7 +188,70 @@ function renderRecords() {
   });
 }
 
-// ... [keep all your existing deleteActivity, exportToCSV code unchanged until generateReports]
+// Delete activity - exposing to global scope for onclick handler
+window.deleteActivity = async function(id) {
+  if (confirm('Are you sure you want to delete this record?')) {
+    try {
+      // Delete from Firestore
+      await deleteDoc(doc(db, "activities", id));
+      
+      // Remove from local array
+      activities = activities.filter(activity => activity.id !== id);
+      
+      // Refresh display
+      renderRecords();
+      
+      console.log("Document successfully deleted!");
+    } catch (error) {
+      console.error("Error removing document: ", error);
+      alert("Error deleting activity. Please check console for details.");
+    }
+  }
+};
+
+// Export to CSV
+function exportToCSV() {
+  const monthFilter = filterMonth.value;
+  const typeFilter = filterType.value;
+  
+  // Filter activities based on selected filters
+  const filteredActivities = activities.filter(activity => {
+    const activityDate = new Date(activity.date);
+    const matchMonth = monthFilter === '' || activityDate.getMonth() === parseInt(monthFilter);
+    const matchType = typeFilter === '' || activity.activityType === typeFilter;
+    
+    return matchMonth && matchType;
+  });
+  
+  // Prepare CSV content
+  let csvContent = 'Date,Facility,Address,Activity Type,Observation/Action,Officers,Recommendation\n';
+  
+  filteredActivities.forEach(activity => {
+    const formattedDate = new Date(activity.date).toLocaleDateString();
+    const row = [
+      formattedDate,
+      `"${activity.facility.replace(/"/g, '""')}"`,
+      `"${activity.address ? activity.address.replace(/"/g, '""') : ''}"`,
+      `"${activity.activityType.replace(/"/g, '""')}"`,
+      `"${activity.observation.replace(/"/g, '""')}"`,
+      `"${activity.officers.join(', ').replace(/"/g, '""')}"`,
+      `"${activity.recommendation ? activity.recommendation.replace(/"/g, '""') : ''}"`
+    ];
+    
+    csvContent += row.join(',') + '\n';
+  });
+  
+  // Create download link
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.setAttribute('href', url);
+  link.setAttribute('download', 'activities_report.csv');
+  link.style.visibility = 'hidden';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
 
 // Generate reports and charts
 function generateReports() {
@@ -143,7 +259,8 @@ function generateReports() {
   
   // Filter activities for the selected month
   const monthActivities = activities.filter(activity => {
-    return activity.date.getMonth() === selectedMonth;
+    const activityDate = new Date(activity.date);
+    return activityDate.getMonth() === selectedMonth;
   });
   
   // Calculate summary statistics
@@ -225,12 +342,11 @@ function generateTimeChart(activities) {
   const activityByDay = {};
   
   activities.forEach(activity => {
-    // Use ISO date string (YYYY-MM-DD) as key
-    const dateKey = activity.date.toISOString().split('T')[0];
-    activityByDay[dateKey] = (activityByDay[dateKey] || 0) + 1;
+    const date = activity.date;
+    activityByDay[date] = (activityByDay[date] || 0) + 1;
   });
   
-  // Sort dates chronologically
+  // Sort dates
   const sortedDates = Object.keys(activityByDay).sort();
   
   const ctx = document.getElementById('time-chart').getContext('2d');
@@ -243,7 +359,7 @@ function generateTimeChart(activities) {
   window.timeChart = new Chart(ctx, {
     type: 'line',
     data: {
-      labels: sortedDates.map(date => new Date(date).toLocaleDateString('en-GB')),
+      labels: sortedDates.map(date => new Date(date).toLocaleDateString()),
       datasets: [{
         label: 'Number of Activities',
         data: sortedDates.map(date => activityByDay[date]),
@@ -261,12 +377,6 @@ function generateTimeChart(activities) {
           beginAtZero: true,
           ticks: {
             stepSize: 1
-          }
-        },
-        x: {
-          ticks: {
-            autoSkip: true,
-            maxTicksLimit: 10
           }
         }
       }
